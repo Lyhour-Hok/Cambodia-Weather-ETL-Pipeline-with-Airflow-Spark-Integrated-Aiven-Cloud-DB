@@ -1,28 +1,31 @@
 import json
-import glob
 import os
+import mysql.connector
 from pyspark.sql import SparkSession
 from pyspark.sql.functions import col, round as spark_round, lower, trim, when
+from dotenv import load_dotenv
+
+# Load config ពី .env
+load_dotenv()
 
 def main():
-    spark = SparkSession.builder \
-        .appName("CambodiaWeatherTransform") \
-        .master("local[*]") \
-        .getOrCreate()
-
+    # 1. SETUP SPARK
+    spark = SparkSession.builder.appName("CambodiaWeatherTransform").master("local[*]").getOrCreate()
     spark.sparkContext.setLogLevel("WARN")
 
-    # Read JSON Array
-    with open("/tmp/weather_raw.json", "r") as f:
+    # 2. READ RAW DATA
+    raw_path = "/tmp/weather_raw.json"
+    if not os.path.exists(raw_path):
+        print("❌ Error: Raw data not found!")
+        return
+
+    with open(raw_path, "r") as f:
         data = json.load(f)
 
-    print(f"📥 Input rows: {len(data)}")
-
-    # Convert to DataFrame
+    # 3. TRANSFORM WITH SPARK
     rdd = spark.sparkContext.parallelize(data)
     df = spark.read.json(rdd)
 
-    # Transform
     df_clean = df.select(
         trim(col("city")).alias("city"),
         trim(col("province")).alias("province"),
@@ -30,62 +33,59 @@ def main():
         col("latitude"),
         col("longitude"),
         spark_round(col("temperature"), 1).alias("temperature"),
-        spark_round(col("feels_like"), 1).alias("feels_like"),
-        spark_round(col("temp_min"), 1).alias("temp_min"),
-        spark_round(col("temp_max"), 1).alias("temp_max"),
         col("humidity").cast("int"),
-        col("pressure").cast("int"),
         lower(trim(col("weather"))).alias("weather"),
-        col("weather_main"),
-        spark_round(col("wind_speed"), 1).alias("wind_speed"),
-        col("wind_deg").cast("int"),
-        col("cloudiness").cast("int"),
-        col("visibility").cast("int"),
         col("timestamp")
-    )
-
-    # Add heat_level
-    df_clean = df_clean.withColumn(
+    ).withColumn(
         "heat_level",
         when(col("temperature") >= 38, "Extreme Heat")
-        .when(col("temperature") >= 35, "Very Hot")
         .when(col("temperature") >= 30, "Hot")
-        .when(col("temperature") >= 25, "Warm")
         .otherwise("Cool")
     )
 
-    # Sort
-    df_clean = df_clean.orderBy(col("temperature").desc())
+    # 4. PREPARE DATA FOR DATABASE
+    # ប្តូរពី DataFrame ទៅជា list នៃ tuples ដើម្បីស្រួល Insert
+    rows_to_upload = [tuple(row) for row in df_clean.collect()]
 
-    # Save to temp folder
-    output_path = "/tmp/weather_clean_spark"
-    df_clean.coalesce(1).write.mode("overwrite").json(output_path)
+    # 5. LOAD TO AIVEN CLOUD DB
+    print("🚀 Connecting to Aiven Cloud...")
+    try:
+        db_conn = mysql.connector.connect(
+            host=os.getenv("AIVEN_HOST"),
+            port=os.getenv("AIVEN_PORT"),
+            user=os.getenv("AIVEN_USER"),
+            password=os.getenv("AIVEN_PASSWORD"),
+            database=os.getenv("AIVEN_DB")
+        )
+        cursor = db_conn.cursor()
 
-    # Find output file
-    all_files = os.listdir(output_path)
-    print(f"Files in output: {all_files}")
+        # បង្កើត Table (Schema សាមញ្ញសម្រាប់ Test)
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS cambodia_weather (
+                city VARCHAR(100), province VARCHAR(100), country VARCHAR(50),
+                latitude DOUBLE, longitude DOUBLE, temperature DOUBLE,
+                humidity INT, weather VARCHAR(100), timestamp DATETIME,
+                heat_level VARCHAR(50)
+            )
+        """)
 
-    part_files = [f for f in all_files if f.startswith("part-")]
-    print(f"Part files: {part_files}")
+        # លុបទិន្នន័យចាស់ចោលមុននឹង Load ថ្មី (ដើម្បីកុំឱ្យជាន់គ្នា)
+        cursor.execute("TRUNCATE TABLE cambodia_weather")
 
-    # Read and save as JSON array
-    all_rows = []
-    for pf in part_files:
-        full_path = os.path.join(output_path, pf)
-        with open(full_path, "r") as f:
-            for line in f:
-                line = line.strip()
-                if line:
-                    all_rows.append(json.loads(line))
+        # Insert ទិន្នន័យទាំងអស់ចូលម្តងគត់ (Fast Way)
+        sql = "INSERT INTO cambodia_weather VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)"
+        cursor.executemany(sql, rows_to_upload)
 
-    print(f"📤 Output rows: {len(all_rows)}")
+        db_conn.commit()
+        print(f"✅ World-class! Loaded {len(rows_to_upload)} provinces to Cloud DB.")
 
-    with open("/tmp/weather_clean.json", "w") as f:
-        json.dump(all_rows, f, indent=2, ensure_ascii=False)
-
-    count = df_clean.count()
-    print(f"✅ Spark Transform done! {count} provinces.")
-    spark.stop()
+    except Exception as e:
+        print(f"❌ DB Error: {e}")
+    finally:
+        if 'db_conn' in locals() and db_conn.is_connected():
+            cursor.close()
+            db_conn.close()
+        spark.stop()
 
 if __name__ == "__main__":
     main()

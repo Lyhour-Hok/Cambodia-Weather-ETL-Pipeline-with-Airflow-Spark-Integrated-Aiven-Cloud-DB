@@ -241,14 +241,40 @@ def temp_to_rgb(temp, t_min=25, t_max=42):
 # ==========================================
 # DATA ENGINE
 # ==========================================
+# @st.cache_data(ttl=60)
+# def get_receipts():
+#     conn = mysql.connector.connect(
+#         host="localhost", port=3307, database="airflow",
+#         user="airflow", password="airflow"
+#     )
+#     df = pd.read_sql("SELECT * FROM cambodia_weather ORDER BY timestamp DESC", conn)
+#     conn.close()
+#     df['timestamp'] = pd.to_datetime(df['timestamp'])
+#     df = df.sort_values('timestamp', ascending=False).drop_duplicates('province')
+#     return df
+# ==========================================
+# DATA ENGINE
+# ==========================================
+# ==========================================
+# DATA ENGINE (កែឱ្យត្រូវស្តង់ដារ Security)
+# ==========================================
 @st.cache_data(ttl=60)
 def get_receipts():
+    # ទាញព័ត៌មានពី Streamlit Secrets (ប្រើ Key ខ្លីៗងាយស្រួល)
+    db_config = st.secrets["mysql"]
+    
     conn = mysql.connector.connect(
-        host="localhost", port=3307, database="airflow",
-        user="airflow", password="airflow"
+        host=db_config["host"],
+        port=int(db_config["port"]), # ប្រាកដថាវាជាលេខ integer
+        user=db_config["user"],
+        password=db_config["password"],
+        database=db_config["database"]
     )
-    df = pd.read_sql("SELECT * FROM cambodia_weather ORDER BY timestamp DESC", conn)
+    
+    query = "SELECT * FROM cambodia_weather ORDER BY timestamp DESC"
+    df = pd.read_sql(query, conn)
     conn.close()
+    
     df['timestamp'] = pd.to_datetime(df['timestamp'])
     df = df.sort_values('timestamp', ascending=False).drop_duplicates('province')
     return df

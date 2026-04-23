@@ -167,21 +167,21 @@ def transform_weather():
 def load_weather():
     import mysql.connector
     import json
+    import os
 
     with open("/tmp/weather_clean.json", "r") as f:
         data = json.load(f)
 
-    # Note: Make sure these match your MySQL container setup!
     conn = mysql.connector.connect(
-    host=os.environ.get("AIVEN_HOST"),
-    port=int(os.environ.get("AIVEN_PORT", 12992)),
-    database=os.environ.get("AIVEN_DB"),
-    user=os.environ.get("AIVEN_USER"),
-    password=os.environ.get("AIVEN_PASSWORD"),
-    ssl_disabled=False,
-    ssl_verify_cert=False,
-    ssl_verify_identity=False
-)
+        host=os.environ.get("AIVEN_HOST"),
+        port=int(os.environ.get("AIVEN_PORT", 12992)),
+        database=os.environ.get("AIVEN_DB"),
+        user=os.environ.get("AIVEN_USER"),
+        password=os.environ.get("AIVEN_PASSWORD"),
+        ssl_disabled=False,
+        ssl_verify_cert=False,
+        ssl_verify_identity=False
+    )
     cur = conn.cursor()
 
     # Changed SERIAL to INT AUTO_INCREMENT and NOW() to CURRENT_TIMESTAMP
@@ -263,11 +263,9 @@ with DAG(
         python_callable=extract_weather
     )
 
-    t2 = SparkSubmitOperator(
+    t2 = PythonOperator(
     task_id="transform_weather",
-    application="/opt/airflow/spark_jobs/transform.py",
-    conn_id="spark_default",
-    verbose=True
+    python_callable=transform_weather
 )
 
     t3 = PythonOperator(

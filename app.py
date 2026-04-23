@@ -265,10 +265,13 @@ def get_receipts():
     
     conn = mysql.connector.connect(
         host=db_config["host"],
-        port=int(db_config["port"]), # ប្រាកដថាវាជាលេខ integer
+        port=int(db_config["port"]),
         user=db_config["user"],
         password=db_config["password"],
-        database=db_config["database"]
+        database=db_config["database"],
+        ssl_disabled=False,
+        ssl_verify_cert=False,
+        ssl_verify_identity=False
     )
     
     query = "SELECT * FROM cambodia_weather ORDER BY timestamp DESC"

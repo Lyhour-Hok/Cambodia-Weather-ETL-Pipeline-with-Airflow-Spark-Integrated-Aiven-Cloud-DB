@@ -4,6 +4,8 @@ from airflow.providers.apache.spark.operators.spark_submit import SparkSubmitOpe
 from datetime import datetime, timedelta
 import requests
 import json
+import os
+
 # ==============================
 # CONFIG
 # ==============================
@@ -171,11 +173,15 @@ def load_weather():
 
     # Note: Make sure these match your MySQL container setup!
     conn = mysql.connector.connect(
-        host="mysql", 
-        database="airflow",
-        user="airflow",
-        password="airflow"
-    )
+    host=os.environ.get("AIVEN_HOST"),
+    port=int(os.environ.get("AIVEN_PORT", 12992)),
+    database=os.environ.get("AIVEN_DB"),
+    user=os.environ.get("AIVEN_USER"),
+    password=os.environ.get("AIVEN_PASSWORD"),
+    ssl_disabled=False,
+    ssl_verify_cert=False,
+    ssl_verify_identity=False
+)
     cur = conn.cursor()
 
     # Changed SERIAL to INT AUTO_INCREMENT and NOW() to CURRENT_TIMESTAMP

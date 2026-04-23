@@ -424,7 +424,7 @@ column_layer = pdk.Layer(
 )
 
 st.pydeck_chart(pdk.Deck(
-    map_style='mapbox://styles/mapbox/dark-v10',
+    map_style='https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json',
     initial_view_state=pdk.ViewState(
         latitude=12.5657, longitude=104.9910,
         zoom=6.5, pitch=48, bearing=0

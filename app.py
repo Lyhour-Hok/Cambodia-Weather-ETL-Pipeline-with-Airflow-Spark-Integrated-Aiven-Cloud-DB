@@ -465,8 +465,6 @@ st.divider()
 # ==========================================
 with st.expander("Raw Data — Full Table"):
     st.dataframe(
-        df.drop(columns=['color']).style.background_gradient(
-            subset=['temperature'], cmap='RdYlBu_r'
-        ),
+        df.drop(columns=['color']),
         use_container_width=True
     )

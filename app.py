@@ -260,12 +260,14 @@ def temp_to_rgb(temp, t_min=25, t_max=42):
 # ==========================================
 @st.cache_data(ttl=60)
 def get_receipts():
+    db = st.secrets["mysql"]
     conn = mysql.connector.connect(
-        host="localhost",
-        port=3307,
-        database="airflow",
-        user="airflow",
-        password="airflow"
+        host=db["host"],
+        port=db["port"],
+        database=db["database"],
+        user=db["user"],
+        password=db["password"],
+        ssl_disabled=False
     )
     df = pd.read_sql("SELECT * FROM cambodia_weather ORDER BY timestamp DESC", conn)
     conn.close()

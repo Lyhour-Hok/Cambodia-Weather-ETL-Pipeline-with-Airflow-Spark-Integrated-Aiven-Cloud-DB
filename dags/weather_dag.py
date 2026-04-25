@@ -2,6 +2,8 @@ from airflow import DAG
 from airflow.operators.python import PythonOperator
 from airflow.providers.apache.spark.operators.spark_submit import SparkSubmitOperator
 from datetime import datetime, timedelta
+import mysql
+import mysql
 import requests
 import json
 import os
@@ -168,83 +170,100 @@ def load_weather():
     import mysql.connector
     import json
     import os
+    import mysql.connector 
 
     with open("/tmp/weather_clean.json", "r") as f:
         data = json.load(f)
 
-    conn = mysql.connector.connect(
-        host=os.environ.get("AIVEN_HOST"),
-        port=int(os.environ.get("AIVEN_PORT", 12992)),
-        database=os.environ.get("AIVEN_DB"),
-        user=os.environ.get("AIVEN_USER"),
-        password=os.environ.get("AIVEN_PASSWORD"),
-        ssl_disabled=False,
-        ssl_verify_cert=False,
-        ssl_verify_identity=False
-    )
-    cur = conn.cursor()
-
-    # Changed SERIAL to INT AUTO_INCREMENT and NOW() to CURRENT_TIMESTAMP
-    cur.execute("""
-        CREATE TABLE IF NOT EXISTS cambodia_weather (
-            id           INT AUTO_INCREMENT PRIMARY KEY,
-            city         VARCHAR(100),
-            province     VARCHAR(100),
-            country      VARCHAR(50),
-            latitude     FLOAT,
-            longitude    FLOAT,
-            temperature  FLOAT,
-            feels_like   FLOAT,
-            temp_min     FLOAT,
-            temp_max     FLOAT,
-            humidity     INT,
-            pressure     INT,
-            weather      VARCHAR(200),
-            weather_main VARCHAR(100),
-            wind_speed   FLOAT,
-            wind_deg     INT,
-            cloudiness   INT,
-            visibility   INT,
-            heat_level   VARCHAR(50),
-            timestamp    TIMESTAMP,
-            created_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        )
-    """)
-
-    inserted = 0
-    for row in data:
-        # Syntax %s works for mysql-connector-python as well
+    # ── INSERT function ── 
+    def insert_to_db(conn):
+        cur = conn.cursor()
         cur.execute("""
-            INSERT INTO cambodia_weather (
-                city, province, country, latitude, longitude,
-                temperature, feels_like, temp_min, temp_max,
-                humidity, pressure, weather, weather_main,
-                wind_speed, wind_deg, cloudiness, visibility,
-                heat_level, timestamp
-            ) VALUES (
-                %s, %s, %s, %s, %s,
-                %s, %s, %s, %s,
-                %s, %s, %s, %s,
-                %s, %s, %s, %s,
-                %s, %s
+            CREATE TABLE IF NOT EXISTS cambodia_weather (
+                id           INT AUTO_INCREMENT PRIMARY KEY,
+                city         VARCHAR(100),
+                province     VARCHAR(100),
+                country      VARCHAR(50),
+                latitude     FLOAT,
+                longitude    FLOAT,
+                temperature  FLOAT,
+                feels_like   FLOAT,
+                temp_min     FLOAT,
+                temp_max     FLOAT,
+                humidity     INT,
+                pressure     INT,
+                weather      VARCHAR(200),
+                weather_main VARCHAR(100),
+                wind_speed   FLOAT,
+                wind_deg     INT,
+                cloudiness   INT,
+                visibility   INT,
+                heat_level   VARCHAR(50),
+                timestamp    TIMESTAMP,
+                created_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
-        """, (
-            row["city"], row["province"], row["country"],
-            row["latitude"], row["longitude"],
-            row["temperature"], row["feels_like"],
-            row["temp_min"], row["temp_max"],
-            row["humidity"], row["pressure"],
-            row["weather"], row["weather_main"],
-            row["wind_speed"], row["wind_deg"],
-            row["cloudiness"], row["visibility"],
-            row["heat_level"], row["timestamp"]
-        ))
-        inserted += 1
+        """)
+        for row in data:
+            cur.execute("""
+                INSERT INTO cambodia_weather (
+                    city, province, country, latitude, longitude,
+                    temperature, feels_like, temp_min, temp_max,
+                    humidity, pressure, weather, weather_main,
+                    wind_speed, wind_deg, cloudiness, visibility,
+                    heat_level, timestamp
+                ) VALUES (
+                    %s, %s, %s, %s, %s,
+                    %s, %s, %s, %s,
+                    %s, %s, %s, %s,
+                    %s, %s, %s, %s,
+                    %s, %s
+                )
+            """, (
+                row["city"], row["province"], row["country"],
+                row["latitude"], row["longitude"],
+                row["temperature"], row["feels_like"],
+                row["temp_min"], row["temp_max"],
+                row["humidity"], row["pressure"],
+                row["weather"], row["weather_main"],
+                row["wind_speed"], row["wind_deg"],
+                row["cloudiness"], row["visibility"],
+                row["heat_level"], row["timestamp"]
+            ))
+        conn.commit()
+        cur.close()
 
-    conn.commit()
-    cur.close()
-    conn.close()
-    print(f"✅ Load done! {inserted} provinces inserted into MySQL database.")
+    # ── ១. Docker MySQL (Local) ──
+    try:
+        conn_local = mysql.connector.connect(
+            host="airflow_mysql",
+            port=3306,
+            database="airflow",
+            user="airflow",
+            password="airflow"
+        )
+        insert_to_db(conn_local)
+        conn_local.close()
+        print("✅ Docker MySQL — inserted!")
+    except Exception as e:
+        print(f"⚠️ Docker MySQL failed: {e}")
+
+    # ── ២. Aiven MySQL (Cloud) ──
+    try:
+        conn_aiven = mysql.connector.connect(
+            host=os.environ.get("AIVEN_HOST"),
+            port=int(os.environ.get("AIVEN_PORT", 12992)),
+            database=os.environ.get("AIVEN_DB"),
+            user=os.environ.get("AIVEN_USER"),
+            password=os.environ.get("AIVEN_PASSWORD"),
+            ssl_disabled=False,
+            ssl_verify_cert=False,
+            ssl_verify_identity=False
+        )
+        insert_to_db(conn_aiven)
+        conn_aiven.close()
+        print("✅ Aiven MySQL — inserted!")
+    except Exception as e:
+        print(f"⚠️ Aiven MySQL failed: {e}")
 
 # ==============================
 # DAG DEFINITION

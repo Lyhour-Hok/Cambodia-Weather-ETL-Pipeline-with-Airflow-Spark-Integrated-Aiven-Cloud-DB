@@ -260,28 +260,23 @@ def temp_to_rgb(temp, t_min=25, t_max=42):
 # ==========================================
 @st.cache_data(ttl=60)
 def get_receipts():
-    # ទាញព័ត៌មានពី Streamlit Secrets (ប្រើ Key ខ្លីៗងាយស្រួល)
-    db_config = st.secrets["mysql"]
-    
+    db = st.secrets["mysql"]
     conn = mysql.connector.connect(
-        host=db_config["host"],
-        port=int(db_config["port"]),
-        user=db_config["user"],
-        password=db_config["password"],
-        database=db_config["database"],
-        ssl_disabled=False,
-        ssl_verify_cert=False,
-        ssl_verify_identity=False
+        host=db["host"],
+        port=db["port"],
+        database=db["database"],
+        user=db["user"],
+        password=db["password"]
     )
-    
-    query = "SELECT * FROM cambodia_weather ORDER BY timestamp DESC"
-    df = pd.read_sql(query, conn)
+    df = pd.read_sql("SELECT * FROM cambodia_weather ORDER BY timestamp DESC", conn)
     conn.close()
-    
     df['timestamp'] = pd.to_datetime(df['timestamp'])
+    
+    # ✅ បន្ថែម +7 ម៉ោង ទៅជា Cambodia Time
+    df['timestamp'] = df['timestamp'] + pd.Timedelta(hours=7)
+    
     df = df.sort_values('timestamp', ascending=False).drop_duplicates('province')
     return df
-
 df_raw = get_receipts()
 
 
@@ -301,6 +296,9 @@ with st.sidebar:
     )
 
     st.markdown("---")
+    if st.button("🔄 Refresh Data", use_container_width=True):
+        st.cache_data.clear()
+        st.rerun()
     st.markdown(f"""
         <div style="font-family:'Space Mono',monospace; font-size:0.62rem;
                     color:#4a5568; line-height:2.2; margin-bottom:1.4rem;">

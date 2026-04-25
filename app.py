@@ -260,21 +260,17 @@ def temp_to_rgb(temp, t_min=25, t_max=42):
 # ==========================================
 @st.cache_data(ttl=60)
 def get_receipts():
-    db = st.secrets["mysql"]
     conn = mysql.connector.connect(
-        host=db["host"],
-        port=db["port"],
-        database=db["database"],
-        user=db["user"],
-        password=db["password"]
+        host="localhost",
+        port=3307,
+        database="airflow",
+        user="airflow",
+        password="airflow"
     )
     df = pd.read_sql("SELECT * FROM cambodia_weather ORDER BY timestamp DESC", conn)
     conn.close()
     df['timestamp'] = pd.to_datetime(df['timestamp'])
-    
-    # ✅ បន្ថែម +7 ម៉ោង ទៅជា Cambodia Time
     df['timestamp'] = df['timestamp'] + pd.Timedelta(hours=7)
-    
     df = df.sort_values('timestamp', ascending=False).drop_duplicates('province')
     return df
 df_raw = get_receipts()

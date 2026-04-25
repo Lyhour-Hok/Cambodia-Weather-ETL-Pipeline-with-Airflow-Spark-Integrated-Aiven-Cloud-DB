@@ -1,0 +1,33 @@
+name: Cambodia Weather ETL
+
+on:
+  schedule:
+    - cron: '0 * * * *'  # រៀងរាល់ម៉ោង
+  workflow_dispatch:       # អាច run ដោយដៃបាន
+
+jobs:
+  etl:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: Install dependencies
+        run: |
+          pip install requests mysql-connector-python
+
+      - name: Run ETL
+        env:
+          OPENWEATHER_API_KEY: ${{ secrets.OPENWEATHER_API_KEY }}
+          AIVEN_HOST: ${{ secrets.AIVEN_HOST }}
+          AIVEN_PORT: ${{ secrets.AIVEN_PORT }}
+          AIVEN_USER: ${{ secrets.AIVEN_USER }}
+          AIVEN_PASSWORD: ${{ secrets.AIVEN_PASSWORD }}
+          AIVEN_DB: ${{ secrets.AIVEN_DB }}
+        run: python github_etl.py

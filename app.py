@@ -290,20 +290,13 @@ with st.sidebar:
         "Provinces",
         options=all_provinces,
         default=all_provinces,
-        help="Filter the dashboard by province"
     )
 
     st.markdown("---")
+    
     if st.button("🔄 Refresh Data", use_container_width=True):
         st.cache_data.clear()
         st.rerun()
-    st.markdown(f"""
-        <div style="font-family:'Space Mono',monospace; font-size:0.62rem;
-                    color:#4a5568; line-height:2.2; margin-bottom:1.4rem;">
-            TOTAL NODES &nbsp; <span style="color:#f1f5f9">{len(df_raw)}</span><br>
-            SELECTED &nbsp;&nbsp;&nbsp;&nbsp; <span style="color:#f97316">{len(selected_provinces)}</span>
-        </div>
-    """, unsafe_allow_html=True)
 
     # Temperature color legend
     st.markdown("### 🌡 Temp Scale")

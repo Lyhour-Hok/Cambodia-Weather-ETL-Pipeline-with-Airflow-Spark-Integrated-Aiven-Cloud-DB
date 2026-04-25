@@ -258,7 +258,7 @@ def temp_to_rgb(temp, t_min=25, t_max=42):
 # ==========================================
 # DATA ENGINE (កែឱ្យត្រូវស្តង់ដារ Security)
 # ==========================================
-@st.cache_data(ttl=60)
+@st.cache_data(ttl=30, show_spinner="Loading fresh data...")
 def get_receipts():
     db = st.secrets["mysql"]
     conn = mysql.connector.connect(

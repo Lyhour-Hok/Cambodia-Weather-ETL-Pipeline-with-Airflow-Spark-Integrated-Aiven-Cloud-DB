@@ -2,17 +2,25 @@ import streamlit as st
 import pandas as pd
 import mysql.connector
 import pydeck as pdk
-import streamlit as st
+import streamlit.components.v1 as components
 
-# ដាក់កូដ Google Verification ក្នុង HTML tag
-st.markdown(
-    """
-    <head>
-        <meta name="google-site-verification" content="Ite1Y-F3Rj87-1MpXBps7MOvjzAdRdm6ICcT-eY2tXw" />
-    </head>
-    """, 
-    unsafe_allow_html=True
-)
+# ដាក់ Google Analytics ID ដែលឯងទើបតែ Copy បានមិញ
+GA_ID = "G-32GV9EMFC9" 
+
+# បង្កប់ Script ចូលទៅក្នុង Header នៃ App
+ga_script = f"""
+    <script async src="https://www.googletagmanager.com/gtag/js?id={GA_ID}"></script>
+    <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){{dataLayer.push(arguments);}}
+        gtag('js', new Date());
+        gtag('config', '{GA_ID}');
+    </script>
+"""
+components.html(ga_script, height=0)
+
+st.title("Cambodia Weather Real-time Dashboard 🇰🇭")
+# បន្តកូដ Dashboard របស់ឯង...
 
 
 

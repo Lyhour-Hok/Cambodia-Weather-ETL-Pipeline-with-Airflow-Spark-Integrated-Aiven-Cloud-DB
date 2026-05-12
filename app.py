@@ -2,29 +2,27 @@ import streamlit as st
 import pandas as pd
 import mysql.connector
 import pydeck as pdk
-import streamlit as st
 import streamlit.components.v1 as components
 
-# ១. ផ្នែក <head> ពី image_ff0bb5.png
-gtm_head = """
-<script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
-new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
-j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
-'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
-})(window,document,'script','dataLayer','GTM-K7HL6RZ3');</script>
+# ដាក់ Google Analytics ID ដែលឯងទើបតែ Copy បានមិញ
+GA_ID = "G-32GV9EMFC9" 
+
+# បង្កប់ Script ចូលទៅក្នុង Header នៃ App
+ga_script = f"""
+    <script async src="https://www.googletagmanager.com/gtag/js?id={GA_ID}"></script>
+    <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){{dataLayer.push(arguments);}}
+        gtag('js', new Date());
+        gtag('config', '{GA_ID}');
+    </script>
 """
+components.html(ga_script, height=0)
 
-# ២. ផ្នែក <body> (noscript) ពី image_ff0bb5.png
-gtm_body = """
-<noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-K7HL6RZ3"
-height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
-"""
+st.title("Cambodia Weather Real-time Dashboard 🇰🇭")
+# បន្តកូដ Dashboard របស់ឯង...
 
-# បញ្ចូលកូដទាំងពីរទៅក្នុង App
-# យើងប្រើ height=0 ដើម្បីកុំឱ្យវាបង្ហាញផ្ទាំងអ្វីនៅលើ Dashboard
-components.html(gtm_head + gtm_body, height=0)
 
-st.title("Cambodia Weather ETL Dashboard 🇰🇭")
 
 
 # ==========================================

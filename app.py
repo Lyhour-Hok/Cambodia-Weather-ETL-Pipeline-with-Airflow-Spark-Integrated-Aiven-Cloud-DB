@@ -4,10 +4,45 @@ import mysql.connector
 import pydeck as pdk
 import streamlit.components.v1 as components
 
-# ដាក់ Google Analytics ID ដែលឯងទើបតែ Copy បានមិញ
-GA_ID = "G-32GV9EMFC9" 
+# ==========================================
+# 1. ត្រូវដាក់ set_page_config នៅលើគេបង្អស់ (ដាច់ខាត)
+# ==========================================
+st.set_page_config(
+    page_title="Cambodia Weather Intelligence",
+    page_icon="🌡️",
+    layout="wide"
+)
 
-# បង្កប់ Script ចូលទៅក្នុង Header នៃ App
+# ==========================================
+# 2. DATA ENGINE: ទាញទិន្នន័យដោយប្រើ Secrets ពី image_fea1da.png
+# ==========================================
+@st.cache_data(ttl=60)
+def get_receipts():
+    # ទាញយកព័ត៌មានពី Secrets ដែលឯងបានបំពេញក្នុងរូប image_fea1da.png
+    db = st.secrets["mysql"] 
+    
+    conn = mysql.connector.connect(
+        host=db["host"],
+        port=db["port"],
+        database=db["database"],
+        user=db["user"],
+        password=db["password"],
+        ssl_disabled=False # Aiven Cloud ជួនកាលត្រូវការ SSL តែសាកបែបនេះសិន
+    )
+    
+    query = "SELECT * FROM cambodia_weather ORDER BY timestamp DESC"
+    df = pd.read_sql(query, conn)
+    conn.close()
+    
+    # កែសម្រួល Timezone ឱ្យត្រូវនឹងស្រុកខ្មែរ (UTC+7)
+    df['timestamp'] = pd.to_datetime(df['timestamp']) + pd.Timedelta(hours=7)
+    df = df.sort_values('timestamp', ascending=False).drop_duplicates('province')
+    return df
+
+# ==========================================
+# 3. GOOGLE ANALYTICS & TAG MANAGER
+# ==========================================
+GA_ID = "G-32GV9EMFC9" 
 ga_script = f"""
     <script async src="https://www.googletagmanager.com/gtag/js?id={GA_ID}"></script>
     <script>
@@ -19,21 +54,15 @@ ga_script = f"""
 """
 components.html(ga_script, height=0)
 
-st.title("Cambodia Weather Real-time Dashboard 🇰🇭")
-# បន្តកូដ Dashboard របស់ឯង...
+# ចាប់ផ្ដើម Run App
+try:
+    df_raw = get_receipts()
+    st.success("✅ Connected to Aiven Cloud successfully!")
+    # បន្តកូដ Dashboard របស់ឯង...
+except Exception as e:
+    st.error(f"❌ Connection Failed: {e}")
 
 
-
-
-# ==========================================
-# PAGE CONFIG
-# ==========================================
-st.set_page_config(
-    page_title="Cambodia Weather Intelligence",
-    page_icon="🌡️",
-    layout="wide",
-    initial_sidebar_state="expanded"
-)
 
 # ==========================================
 # PROFESSIONAL CSS DESIGN SYSTEM
@@ -280,24 +309,24 @@ def temp_to_rgb(temp, t_min=25, t_max=42):
 # ==========================================
 # DATA ENGINE (កែឱ្យត្រូវស្តង់ដារ Security)
 # ==========================================
-@st.cache_data(ttl=30, show_spinner="Loading fresh data...")
-def get_receipts():
-    db = st.secrets["mysql"]
-    conn = mysql.connector.connect(
-        host=db["host"],
-        port=db["port"],
-        database=db["database"],
-        user=db["user"],
-        password=db["password"],
-        ssl_disabled=False
-    )
-    df = pd.read_sql("SELECT * FROM cambodia_weather ORDER BY timestamp DESC", conn)
-    conn.close()
-    df['timestamp'] = pd.to_datetime(df['timestamp'])
-    df['timestamp'] = df['timestamp'] + pd.Timedelta(hours=7)
-    df = df.sort_values('timestamp', ascending=False).drop_duplicates('province')
-    return df
-df_raw = get_receipts()
+# @st.cache_data(ttl=30, show_spinner="Loading fresh data...")
+# def get_receipts():
+#     db = st.secrets["mysql"]
+#     conn = mysql.connector.connect(
+#         host=db["host"],
+#         port=db["port"],
+#         database=db["database"],
+#         user=db["user"],
+#         password=db["password"],
+#         ssl_disabled=False
+#     )
+#     df = pd.read_sql("SELECT * FROM cambodia_weather ORDER BY timestamp DESC", conn)
+#     conn.close()
+#     df['timestamp'] = pd.to_datetime(df['timestamp'])
+#     df['timestamp'] = df['timestamp'] + pd.Timedelta(hours=7)
+#     df = df.sort_values('timestamp', ascending=False).drop_duplicates('province')
+#     return df
+# df_raw = get_receipts()
 
 
 # ==========================================

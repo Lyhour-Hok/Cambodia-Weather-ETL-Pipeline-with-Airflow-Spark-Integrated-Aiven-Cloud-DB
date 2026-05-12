@@ -5,7 +5,7 @@ import pydeck as pdk
 import streamlit.components.v1 as components
 
 # ==========================================
-# 1. ត្រូវដាក់ set_page_config នៅលើគេបង្អស់ (ដាច់ខាត)
+# 1. SET PAGE CONFIG — ត្រូវដាក់នៅលើគេបង្អស់ (ដាច់ខាត)
 # ==========================================
 st.set_page_config(
     page_title="Cambodia Weather Intelligence",
@@ -14,35 +14,9 @@ st.set_page_config(
 )
 
 # ==========================================
-# 2. DATA ENGINE: ទាញទិន្នន័យដោយប្រើ Secrets ពី image_fea1da.png
+# 2. GOOGLE ANALYTICS
 # ==========================================
-@st.cache_data(ttl=60)
-def get_receipts():
-    # ទាញយកព័ត៌មានពី Secrets ដែលឯងបានបំពេញក្នុងរូប image_fea1da.png
-    db = st.secrets["mysql"] 
-    
-    conn = mysql.connector.connect(
-        host=db["host"],
-        port=db["port"],
-        database=db["database"],
-        user=db["user"],
-        password=db["password"],
-        ssl_disabled=False # Aiven Cloud ជួនកាលត្រូវការ SSL តែសាកបែបនេះសិន
-    )
-    
-    query = "SELECT * FROM cambodia_weather ORDER BY timestamp DESC"
-    df = pd.read_sql(query, conn)
-    conn.close()
-    
-    # កែសម្រួល Timezone ឱ្យត្រូវនឹងស្រុកខ្មែរ (UTC+7)
-    df['timestamp'] = pd.to_datetime(df['timestamp']) + pd.Timedelta(hours=7)
-    df = df.sort_values('timestamp', ascending=False).drop_duplicates('province')
-    return df
-
-# ==========================================
-# 3. GOOGLE ANALYTICS & TAG MANAGER
-# ==========================================
-GA_ID = "G-32GV9EMFC9" 
+GA_ID = "G-32GV9EMFC9"
 ga_script = f"""
     <script async src="https://www.googletagmanager.com/gtag/js?id={GA_ID}"></script>
     <script>
@@ -54,18 +28,31 @@ ga_script = f"""
 """
 components.html(ga_script, height=0)
 
-# ចាប់ផ្ដើម Run App
-try:
-    df_raw = get_receipts()
-    st.success("✅ Connected to Aiven Cloud successfully!")
-    # បន្តកូដ Dashboard របស់ឯង...
-except Exception as e:
-    st.error(f"❌ Connection Failed: {e}")
+# ==========================================
+# 3. DATA ENGINE — fixed: connection is NOT cached (only data is)
+# ==========================================
+@st.cache_data(ttl=30, show_spinner="Loading fresh data...")
+def get_receipts():
+    db = st.secrets["mysql"]
+    conn = mysql.connector.connect(
+        host=db["host"],
+        port=db["port"],
+        database=db["database"],
+        user=db["user"],
+        password=db["password"],
+        ssl_disabled=False
+    )
+    df = pd.read_sql("SELECT * FROM cambodia_weather ORDER BY timestamp DESC", conn)
+    conn.close()
 
+    # កែម៉ោងឱ្យត្រូវស្រុកខ្មែរ (UTC+7)
+    df['timestamp'] = pd.to_datetime(df['timestamp']) + pd.Timedelta(hours=7)
+    df = df.sort_values('timestamp', ascending=False).drop_duplicates('province')
+    return df
 
 
 # ==========================================
-# PROFESSIONAL CSS DESIGN SYSTEM
+# 4. PROFESSIONAL CSS DESIGN SYSTEM
 # ==========================================
 st.markdown("""
     <style>
@@ -267,8 +254,7 @@ st.markdown("""
 
 
 # ==========================================
-# COLOR GRADIENT: Blue (cold) → Cyan → Yellow → Orange → Red (hot)
-# Range: 25°C (min) → 42°C (max)
+# 5. COLOR GRADIENT: Blue (cold) → Cyan → Yellow → Orange → Red (hot)
 # ==========================================
 def temp_to_rgb(temp, t_min=25, t_max=42):
     ratio = max(0.0, min(1.0, (temp - t_min) / (t_max - t_min)))
@@ -290,47 +276,17 @@ def temp_to_rgb(temp, t_min=25, t_max=42):
 
 
 # ==========================================
-# DATA ENGINE
+# 6. LOAD DATA (with error handling)
 # ==========================================
-# @st.cache_data(ttl=60)
-# def get_receipts():
-#     conn = mysql.connector.connect(
-#         host="localhost", port=3307, database="airflow",
-#         user="airflow", password="airflow"
-#     )
-#     df = pd.read_sql("SELECT * FROM cambodia_weather ORDER BY timestamp DESC", conn)
-#     conn.close()
-#     df['timestamp'] = pd.to_datetime(df['timestamp'])
-#     df = df.sort_values('timestamp', ascending=False).drop_duplicates('province')
-#     return df
-# ==========================================
-# DATA ENGINE
-# ==========================================
-# ==========================================
-# DATA ENGINE (កែឱ្យត្រូវស្តង់ដារ Security)
-# ==========================================
-# @st.cache_data(ttl=30, show_spinner="Loading fresh data...")
-# def get_receipts():
-#     db = st.secrets["mysql"]
-#     conn = mysql.connector.connect(
-#         host=db["host"],
-#         port=db["port"],
-#         database=db["database"],
-#         user=db["user"],
-#         password=db["password"],
-#         ssl_disabled=False
-#     )
-#     df = pd.read_sql("SELECT * FROM cambodia_weather ORDER BY timestamp DESC", conn)
-#     conn.close()
-#     df['timestamp'] = pd.to_datetime(df['timestamp'])
-#     df['timestamp'] = df['timestamp'] + pd.Timedelta(hours=7)
-#     df = df.sort_values('timestamp', ascending=False).drop_duplicates('province')
-#     return df
-# df_raw = get_receipts()
+try:
+    df_raw = get_receipts()
+except Exception as e:
+    st.error(f"❌ Connection Failed: {e}")
+    st.stop()
 
 
 # ==========================================
-# SIDEBAR
+# 7. SIDEBAR
 # ==========================================
 with st.sidebar:
     st.markdown("### 🛰 Filters")
@@ -344,7 +300,7 @@ with st.sidebar:
     )
 
     st.markdown("---")
-    
+
     if st.button("🔄 Refresh Data", use_container_width=True):
         st.cache_data.clear()
         st.rerun()
@@ -378,14 +334,14 @@ with st.sidebar:
 
 
 # ==========================================
-# APPLY FILTERS + COLOR
+# 8. APPLY FILTERS + COLOR
 # ==========================================
 df = df_raw[df_raw['province'].isin(selected_provinces)].copy()
 df['color'] = df['temperature'].apply(temp_to_rgb)
 
 
 # ==========================================
-# ALERTS
+# 9. EXTREME HEAT ALERTS
 # ==========================================
 extreme_heat = df[df['temperature'] >= 38]
 if not extreme_heat.empty:
@@ -395,14 +351,10 @@ if not extreme_heat.empty:
 
 
 # ==========================================
-# PAGE HEADER
+# 10. PAGE HEADER
 # ==========================================
-# ✅ ថ្មី — handle NULL
 ts = df_raw['timestamp'].max()
-if pd.isnull(ts):
-    latest_date = "No data yet"
-else:
-    latest_date = ts.strftime("%d %b %Y · %H:%M")
+latest_date = "No data yet" if pd.isnull(ts) else ts.strftime("%d %b %Y · %H:%M")
 
 st.markdown(f"""
     <div class="page-header">
@@ -420,16 +372,18 @@ st.markdown(f"""
 
 
 # ==========================================
-# METRIC CARDS
+# 11. GUARD: stop if no data after filter
 # ==========================================
-
 if df.empty:
-    st.warning("⚠️ No data yet — Please trigger the DAG in Airflow first!")
-    st.info("Go to: http://localhost:8081 → cambodia_weather_etl → ▶️ Trigger")
+    st.warning("⚠️ No data matches the current filter — try selecting more provinces.")
     st.stop()
 
-hottest = df.loc[df['temperature'].idxmax()]
-coldest = df.loc[df['temperature'].idxmin()]
+
+# ==========================================
+# 12. METRIC CARDS
+# ==========================================
+hottest  = df.loc[df['temperature'].idxmax()]
+coldest  = df.loc[df['temperature'].idxmin()]
 avg_humidity = int(df['humidity'].mean())
 active_nodes = len(df)
 
@@ -445,7 +399,7 @@ with m4:
 
 
 # ==========================================
-# 3D COLUMN MAP — temperature color gradient
+# 13. 3D COLUMN MAP
 # ==========================================
 st.write("")
 st.markdown('<p class="section-label">Spatial View</p>', unsafe_allow_html=True)
@@ -458,7 +412,7 @@ column_layer = pdk.Layer(
     get_elevation="temperature",
     elevation_scale=1500,
     radius=10000,
-    get_fill_color="color",      # ← precomputed RGB list from temp_to_rgb()
+    get_fill_color="color",
     pickable=True,
     auto_highlight=True,
 )
@@ -488,7 +442,7 @@ st.pydeck_chart(pdk.Deck(
 
 
 # ==========================================
-# RANKING CHART
+# 14. RANKING BAR CHART
 # ==========================================
 st.write("")
 st.markdown('<p class="section-label">Province Ranking</p>', unsafe_allow_html=True)
@@ -501,7 +455,7 @@ st.bar_chart(
 st.divider()
 
 # ==========================================
-# RAW DATA TABLE
+# 15. RAW DATA TABLE
 # ==========================================
 with st.expander("Raw Data — Full Table"):
     st.dataframe(

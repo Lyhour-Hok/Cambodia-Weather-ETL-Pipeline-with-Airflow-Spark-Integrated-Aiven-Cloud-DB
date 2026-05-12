@@ -2,6 +2,20 @@ import streamlit as st
 import pandas as pd
 import mysql.connector
 import pydeck as pdk
+import streamlit as st
+
+# ដាក់កូដ Google Verification ក្នុង HTML tag
+st.markdown(
+    """
+    <head>
+        <meta name="google-site-verification" content="Ite1Y-F3Rj87-1MpXBps7MOvjzAdRdm6ICcT-eY2tXw" />
+    </head>
+    """, 
+    unsafe_allow_html=True
+)
+
+
+
 
 # ==========================================
 # PAGE CONFIG
